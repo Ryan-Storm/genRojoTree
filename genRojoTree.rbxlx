@@ -1,0 +1,1304 @@
+<roblox version="4">
+  <Item class="ReplicatedStorage" referent="0">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="Folder" referent="1">
+      <Properties>
+        <string name="Name">Packages</string>
+      </Properties>
+      <Item class="Folder" referent="2">
+        <Properties>
+          <string name="Name">_Index</string>
+        </Properties>
+        <Item class="Folder" referent="3">
+          <Properties>
+            <string name="Name">leifstout_networker@0.3.1</string>
+          </Properties>
+          <Item class="ModuleScript" referent="4">
+            <Properties>
+              <string name="Name">Signal</string>
+              <string name="Source"><![CDATA[return require(script.Parent.Parent["sleitnick_signal@2.0.3"]["signal"])
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="5">
+            <Properties>
+              <string name="Name">networker</string>
+              <string name="Source"><![CDATA[local server = require(script.NetworkerServer)
+local client = require(script.NetworkerClient)
+
+export type Server = server.NetworkerServer
+export type Client = client.NetworkerClient
+
+return {
+	server = server,
+	client = client,
+}
+]]></string>
+            </Properties>
+            <Item class="ModuleScript" referent="6">
+              <Properties>
+                <string name="Name">NetworkerClient</string>
+                <string name="Source"><![CDATA[--!strict
+local RunService = game:GetService("RunService")
+
+local Packages = script.Parent.Parent
+local Signal = require(Packages.Signal)
+local NetworkerUtils = require(script.Parent.NetworkerUtils)
+
+type NetworkTag = NetworkerUtils.NetworkTag
+type RemotesContainer = NetworkerUtils.RemotesContainer
+
+--[=[
+	NetworkerClient facilitates the communication of client-sided networking and handles server networking instructions  
+	@class NetworkerClient  
+]=]
+local NetworkerClient = {}
+NetworkerClient.__index = NetworkerClient
+
+export type NetworkerClient = typeof(setmetatable(
+	{} :: {
+		networkTag: NetworkTag,
+		remotes: RemotesContainer,
+		instanceConn: RBXScriptConnection?,
+		changedSignals: { [string]: Signal.Signal<any> },
+	},
+	NetworkerClient
+))
+
+--[=[
+	Constructs a new NetworkerClient  
+	@param networkTag NetworkTag -- The unqiue tag of the networker  
+	@param module {} -- The class or service the networker will be communicating with  
+	@return NetworkerClient  
+]=]
+function NetworkerClient.new(networkTag: NetworkTag, module: {}): NetworkerClient
+	assert(RunService:IsClient(), "NetworkerClient can only be created on the client")
+
+	local self = {
+		networkTag = networkTag,
+		changedSignals = {},
+	}
+
+	setmetatable(self, NetworkerClient)
+
+	if not RunService:IsRunning() then
+		return self :: any
+	end
+
+	if typeof(networkTag) == "Instance" then
+		local attributeTag = networkTag:GetAttribute(NetworkerUtils.INSTANCE_ATTRIBUTE) :: string?
+		if not attributeTag then
+			networkTag:GetAttributeChangedSignal(NetworkerUtils.INSTANCE_ATTRIBUTE):Wait()
+			attributeTag = networkTag:GetAttribute(NetworkerUtils.INSTANCE_ATTRIBUTE) :: string?
+		end
+
+		assert(attributeTag, "NetworkerClient instance does not have a networkTag attribute")
+		self.networkTag = attributeTag
+	end
+
+	local remotes = script.Parent:WaitForChild("_remotes"):WaitForChild(self.networkTag) :: RemotesContainer
+	self.remotes = remotes
+
+	remotes.Destroying:Once(function()
+		self:destroy()
+	end)
+
+	remotes.RemoteEvent.OnClientEvent:Connect(function(method: string, key: string, ...: any?)
+		if method == NetworkerUtils.SET_TAG then
+			module[key] = ...
+			if self.changedSignals[key] then
+				self.changedSignals[key]:Fire(module[key])
+			end
+			return
+		end
+
+		assert(module[method], "Method " .. method .. " does not exist on networkTag " .. remotes.Name)
+		module[method](module, key, ...)
+	end)
+
+	return self
+end
+
+--[=[
+	Gets the Signal for the given key. Changed signals are used to notify the client when a value has been changed on the server using the set methods.  
+	@param key string -- The key of the signal  
+	@return Signal -- Returns the Signal  
+]=]
+function NetworkerClient.getServerChangedSignal<T>(self: NetworkerClient, key: string): Signal.Signal<T>
+	if not self.changedSignals[key] then
+		self.changedSignals[key] = Signal.new()
+	end
+
+	return self.changedSignals[key]
+end
+
+--[=[
+	calls a method on the server.  
+	@param method string -- The method to fire  
+	@param ... any -- The arguments to pass to the method  
+	@return ()  
+]=]
+function NetworkerClient.fire(self: NetworkerClient, method: string, ...: any?): ()
+	if RunService:IsRunning() then
+		self.remotes.RemoteEvent:FireServer(method, ...)
+	end
+end
+
+--[=[
+	calls a method on the server, and returns its result. 
+	@param method string -- The method to fire  
+	@param ... any -- The arguments to pass to the method  
+	@return any? -- The result of the method
+	@yields
+]=]
+function NetworkerClient.fetch(self: NetworkerClient, method: string, ...: any): ...any
+	if not RunService:IsRunning() then
+		return nil
+	end
+
+	return self.remotes.RemoteFunction:InvokeServer(method, ...)
+end
+
+--[=[
+	Destroys the NetworkerClient and cleans up all connections  
+	@return ()  
+]=]
+function NetworkerClient.destroy(self: NetworkerClient): ()
+	if self.remotes then
+		self.remotes:Destroy()
+	end
+	for _, signal in self.changedSignals do
+		signal:Destroy()
+	end
+	if self.instanceConn then
+		self.instanceConn:Disconnect()
+	end
+end
+
+return NetworkerClient
+]]></string>
+              </Properties>
+            </Item>
+            <Item class="ModuleScript" referent="7">
+              <Properties>
+                <string name="Name">NetworkerServer</string>
+                <string name="Source"><![CDATA[--!strict
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+
+local NetworkerUtils = require(script.Parent.NetworkerUtils)
+
+local RemoteContainter: Folder
+if RunService:IsRunning() and RunService:IsServer() then
+	RemoteContainter = Instance.new("Folder")
+	RemoteContainter.Name = "_remotes"
+	RemoteContainter.Parent = script.Parent
+end
+
+type NetworkTag = NetworkerUtils.NetworkTag
+type ClientAccess = NetworkerUtils.ClientAccess
+type RemotesContainer = NetworkerUtils.RemotesContainer
+
+--[=[
+	NetworkerServer facilitates the communication of server-sided networking and handles client networking requests  
+	@class NetworkerServer  
+]=]
+local NetworkerServer = {}
+NetworkerServer.__index = NetworkerServer
+
+--[=[
+	@within NetworkerServer  
+	@type PlayerGroup Player | { Player }  
+]=]
+type PlayerGroup = Player | { Player }
+
+export type NetworkerServer = typeof(setmetatable(
+	{} :: {
+		networkTag: NetworkTag,
+		event: RemoteEvent,
+		func: RemoteFunction,
+		remotes: RemotesContainer,
+		instance: Instance?,
+		instanceConn: RBXScriptConnection?,
+		recipients: { Player }?,
+		_accessLookup: { [string]: { module: any, method: (...any?) -> ...any? } },
+	},
+	NetworkerServer
+))
+
+--[=[
+	Constructs a new NetworkerServer  
+	@param networkTag NetworkTag -- The unqiue tag of the networker  
+	@param module table? -- The class or service the client will be communicating with  
+	@param clientAccess ClientAccess? -- The methods that the client is allowed to call  
+	@return NetworkerServer  
+]=]
+function NetworkerServer.new(networkTag: NetworkTag, module: {}?, clientAccess: ClientAccess?): NetworkerServer
+	assert(RunService:IsServer(), "NetworkerServer can only be created on the server")
+
+	local self = setmetatable({
+		networkTag = networkTag,
+		_accessLookup = {},
+	}, NetworkerServer)
+
+	local remotes = Instance.new("Folder")
+	local event = Instance.new("RemoteEvent")
+	local func = Instance.new("RemoteFunction")
+	event.Parent = remotes
+	func.Parent = remotes
+
+	self.remotes = remotes :: RemotesContainer
+	self.event = event
+	self.func = func
+
+	if typeof(networkTag) == "Instance" then
+		local instance = networkTag :: Instance
+		assert(
+			instance:GetAttribute(NetworkerUtils.INSTANCE_ATTRIBUTE) == nil,
+			"NetworkerServer instance already has a networkTag attribute"
+		)
+
+		local newTag = HttpService:GenerateGUID(false):sub(1, 13)
+		self.instance = instance
+		self.networkTag = newTag
+		instance:SetAttribute(NetworkerUtils.INSTANCE_ATTRIBUTE, newTag)
+
+		self.instanceConn = instance.Destroying:Once(function()
+			self:destroy()
+		end)
+	end
+
+	remotes.Name = self.networkTag :: string
+	assert(RemoteContainter:FindFirstChild(remotes.Name) == nil, "NetworkerServer with the same name already exists")
+	remotes.Parent = RemoteContainter
+
+	if clientAccess then
+		assert(module, "Module must be provided if clientAccess is specified")
+		self:addClientAccess(module, clientAccess)
+	end
+
+	local function callback(player: Player, method: string, ...: any?): ...any?
+		local access = self._accessLookup[method]
+		if not access then
+			warn(method .. " does not exist or is restricted for ", networkTag)
+			return
+		end
+
+		return access.method(access.module, player, ...)
+	end
+
+	event.OnServerEvent:Connect(callback)
+	func.OnServerInvoke = callback
+
+	return self
+end
+
+--[=[
+	Adds a client access method(s) to the NetworkerServer
+	@param module any -- The class or service the client will be communicating with  
+	@param methods ClientAccess -- The methods that the client is allowed to call
+	@return ()  
+]=]
+function NetworkerServer.addClientAccess(self: NetworkerServer, module: any, methods: { any }): ()
+	local function addAccess(accessModule: any)
+		for _, method in methods do
+			for funcName, func in accessModule do
+				if func ~= method then
+					continue
+				end
+
+				assert(self._accessLookup[funcName] == nil, "Client access method already exists: " .. funcName)
+				assert(type(func) == "function", "Client access method must be a function: " .. funcName)
+
+				self._accessLookup[funcName] = {
+					module = module,
+					method = method,
+				}
+			end
+		end
+	end
+
+	addAccess(module)
+
+	local metatable = getmetatable(module)
+	local metatableModule = if metatable then metatable.__index else metatable
+	if metatableModule then
+		addAccess(metatableModule)
+	end
+end
+
+--[=[
+	Adds a player to the list of recipients  
+	@param player Player -- The player to add to the list of recipients  
+	@return ()  
+]=]
+function NetworkerServer.addRecipient(self: NetworkerServer, player: Player): ()
+	if not self.recipients then
+		self.recipients = {}
+	end
+
+	assert(self.recipients, "Recipients list is nil")
+	table.insert(self.recipients, player)
+end
+
+--[=[
+	Removes a player from the list of recipients  
+	@param player Player -- The player to remove from the list of recipients  
+	@return ()  
+]=]
+function NetworkerServer.removeRecipient(self: NetworkerServer, player: Player): ()
+	if not self.recipients then
+		return
+	end
+
+	local index = table.find(self.recipients, player)
+	if index then
+		table.remove(self.recipients, index)
+	end
+end
+
+--[=[
+	Clears the list of recipients  
+	@return ()  
+]=]
+function NetworkerServer.clearRecipients(self: NetworkerServer): ()
+	self.recipients = nil
+end
+
+--[=[
+	Fires a method to the given players  
+	@param players PlayerGroup -- The players to fire the method to  
+	@param method string -- The name of the method to fire  
+	@param ... any? -- The arguments to pass to the method  
+	@return ()  
+]=]
+function NetworkerServer.fire(self: NetworkerServer, players: PlayerGroup, method: string, ...: any?): ()
+	if typeof(players) == "Instance" then
+		self.event:FireClient(players, method, ...)
+		return
+	end
+
+	for _, player in players :: { Player } do
+		self.event:FireClient(player, method, ...)
+	end
+end
+
+--[=[
+	Fires a method to all players  
+	@param method string -- The name of the method to fire  
+	@param ... any? -- The arguments to pass to the method  
+	@return ()  
+]=]
+function NetworkerServer.fireAll(self: NetworkerServer, method: string, ...: any?): ()
+	self.event:FireAllClients(method, ...)
+end
+
+--[=[
+	Fires a method to all players except the given players  
+	@param players PlayerGroup -- The players to exclude from the firing  
+	@param method string -- The name of the method to fire  
+	@param ... any? -- The arguments to pass to the method  
+	@return ()  
+]=]
+function NetworkerServer.fireAllExcept(self: NetworkerServer, players: PlayerGroup, method: string, ...: any?): ()
+	if typeof(players) == "Instance" then
+		players = { players }
+	end
+
+	for _, player in Players:GetPlayers() do
+		if not table.find(players :: { Player }, player) then
+			self.event:FireClient(player, method, ...)
+		end
+	end
+end
+
+--[=[
+	Fires a method to the list of recipients  
+	@param method string -- The name of the method to fire  
+	@param ... any? -- The arguments to pass to the method  
+	@return ()  
+]=]
+function NetworkerServer.fireRecipients(self: NetworkerServer, method: string, ...: any?): ()
+	if not self.recipients then
+		warn("No recipients set for service ", self.networkTag)
+		return
+	end
+
+	self:fire(self.recipients, method, ...)
+end
+
+--[=[
+	Sets a value to the given players  
+	@param players PlayerGroup -- The players to set the value to  
+	@param index string -- The name of the value being set  
+	@param value any? -- The value being set  
+	@return ()  
+]=]
+function NetworkerServer.set(self: NetworkerServer, players: PlayerGroup, index: string, value: any?)
+	self:fire(players, NetworkerUtils.SET_TAG, index, value)
+end
+
+--[=[
+	Sets a value to all players  
+	@param index string -- The name of the value being set  
+	@param value any? -- The value being set  
+	@return ()  
+]=]
+function NetworkerServer.setAll(self: NetworkerServer, index: string, value: any?)
+	self:fireAll(NetworkerUtils.SET_TAG, index, value)
+end
+
+--[=[
+	Sets a value to all players except the given players  
+	@param players PlayerGroup -- The players to exclude from the setting  
+	@param index string -- The name of the value being set  
+	@param value any? -- The value being set  
+	@return ()  
+]=]
+function NetworkerServer.setAllExcept(self: NetworkerServer, players: PlayerGroup, index: string, value: any?)
+	self:fireAllExcept(players, NetworkerUtils.SET_TAG, index, value)
+end
+
+--[=[
+	Sets a value to the list of recipients  
+	@param index string -- The name of the value being set  
+	@param value any? -- The value being set  
+	@return ()  
+]=]
+function NetworkerServer.setRecipients(self: NetworkerServer, index: string, value: any?): ()
+	self:fireRecipients(NetworkerUtils.SET_TAG, index, value)
+end
+
+--[=[
+	Destroys the NetworkerServer  
+	@return ()  
+]=]
+function NetworkerServer.destroy(self: NetworkerServer): ()
+	self.remotes:Destroy()
+	self:clearRecipients()
+	if self.instanceConn then
+		self.instanceConn:Disconnect()
+	end
+	if self.instance then
+		self.instance:SetAttribute(NetworkerUtils.INSTANCE_ATTRIBUTE, nil)
+		self.instance = nil
+	end
+end
+
+return NetworkerServer
+]]></string>
+              </Properties>
+            </Item>
+            <Item class="ModuleScript" referent="8">
+              <Properties>
+                <string name="Name">NetworkerUtils</string>
+                <string name="Source"><![CDATA[--[=[
+	@type ClientAccess { (any) -> any }  
+	@within NetworkerServer  
+]=]
+export type ClientAccess = { (...any?) -> ...any? }
+
+--[=[
+	@type NetworkTag string | Instance  
+	@within NetworkerServer  
+]=]
+export type NetworkTag = string | Instance
+
+export type RemotesContainer = Folder & {
+	RemoteEvent: RemoteEvent,
+	RemoteFunction: RemoteFunction,
+}
+
+return {
+	SET_TAG = "__set",
+	INSTANCE_ATTRIBUTE = "__networkTag",
+	INSTANCE_TAG = "__instance",
+}
+]]></string>
+              </Properties>
+            </Item>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="9">
+          <Properties>
+            <string name="Name">sleitnick_signal@2.0.3</string>
+          </Properties>
+          <Item class="ModuleScript" referent="10">
+            <Properties>
+              <string name="Name">signal</string>
+              <string name="Source"><![CDATA[-- -----------------------------------------------------------------------------
+--               Batched Yield-Safe Signal Implementation                     --
+-- This is a Signal class which has effectively identical behavior to a       --
+-- normal RBXScriptSignal, with the only difference being a couple extra      --
+-- stack frames at the bottom of the stack trace when an error is thrown.     --
+-- This implementation caches runner coroutines, so the ability to yield in   --
+-- the signal handlers comes at minimal extra cost over a naive signal        --
+-- implementation that either always or never spawns a thread.                --
+--                                                                            --
+-- License:                                                                   --
+--   Licensed under the MIT license.                                          --
+--                                                                            --
+-- Authors:                                                                   --
+--   stravant - July 31st, 2021 - Created the file.                           --
+--   sleitnick - August 3rd, 2021 - Modified for Knit.                        --
+-- -----------------------------------------------------------------------------
+
+-- Signal types
+export type Connection = {
+	Disconnect: (self: Connection) -> (),
+	Destroy: (self: Connection) -> (),
+	Connected: boolean,
+}
+
+export type Signal<T...> = {
+	Fire: (self: Signal<T...>, T...) -> (),
+	FireDeferred: (self: Signal<T...>, T...) -> (),
+	Connect: (self: Signal<T...>, fn: (T...) -> ()) -> Connection,
+	Once: (self: Signal<T...>, fn: (T...) -> ()) -> Connection,
+	DisconnectAll: (self: Signal<T...>) -> (),
+	GetConnections: (self: Signal<T...>) -> { Connection },
+	Destroy: (self: Signal<T...>) -> (),
+	Wait: (self: Signal<T...>) -> T...,
+}
+
+-- The currently idle thread to run the next handler on
+local freeRunnerThread = nil
+
+-- Function which acquires the currently idle handler runner thread, runs the
+-- function fn on it, and then releases the thread, returning it to being the
+-- currently idle one.
+-- If there was a currently idle runner thread already, that's okay, that old
+-- one will just get thrown and eventually GCed.
+local function acquireRunnerThreadAndCallEventHandler(fn, ...)
+	local acquiredRunnerThread = freeRunnerThread
+	freeRunnerThread = nil
+	fn(...)
+	-- The handler finished running, this runner thread is free again.
+	freeRunnerThread = acquiredRunnerThread
+end
+
+-- Coroutine runner that we create coroutines of. The coroutine can be
+-- repeatedly resumed with functions to run followed by the argument to run
+-- them with.
+local function runEventHandlerInFreeThread(...)
+	acquireRunnerThreadAndCallEventHandler(...)
+	while true do
+		acquireRunnerThreadAndCallEventHandler(coroutine.yield())
+	end
+end
+
+--[=[
+	@within Signal
+	@interface SignalConnection
+	.Connected boolean
+	.Disconnect (SignalConnection) -> ()
+
+	Represents a connection to a signal.
+	```lua
+	local connection = signal:Connect(function() end)
+	print(connection.Connected) --> true
+	connection:Disconnect()
+	print(connection.Connected) --> false
+	```
+]=]
+
+-- Connection class
+local Connection = {}
+Connection.__index = Connection
+
+function Connection:Disconnect()
+	if not self.Connected then
+		return
+	end
+	self.Connected = false
+
+	-- Unhook the node, but DON'T clear it. That way any fire calls that are
+	-- currently sitting on this node will be able to iterate forwards off of
+	-- it, but any subsequent fire calls will not hit it, and it will be GCed
+	-- when no more fire calls are sitting on it.
+	if self._signal._handlerListHead == self then
+		self._signal._handlerListHead = self._next
+	else
+		local prev = self._signal._handlerListHead
+		while prev and prev._next ~= self do
+			prev = prev._next
+		end
+		if prev then
+			prev._next = self._next
+		end
+	end
+end
+
+Connection.Destroy = Connection.Disconnect
+
+-- Make Connection strict
+setmetatable(Connection, {
+	__index = function(_tb, key)
+		error(("Attempt to get Connection::%s (not a valid member)"):format(tostring(key)), 2)
+	end,
+	__newindex = function(_tb, key, _value)
+		error(("Attempt to set Connection::%s (not a valid member)"):format(tostring(key)), 2)
+	end,
+})
+
+--[=[
+	@within Signal
+	@type ConnectionFn (...any) -> ()
+
+	A function connected to a signal.
+]=]
+
+--[=[
+	@class Signal
+
+	A Signal is a data structure that allows events to be dispatched
+	and observed.
+
+	This implementation is a direct copy of the de facto standard, [GoodSignal](https://devforum.roblox.com/t/lua-signal-class-comparison-optimal-goodsignal-class/1387063),
+	with some added methods and typings.
+
+	For example:
+	```lua
+	local signal = Signal.new()
+
+	-- Subscribe to a signal:
+	signal:Connect(function(msg)
+		print("Got message:", msg)
+	end)
+
+	-- Dispatch an event:
+	signal:Fire("Hello world!")
+	```
+]=]
+local Signal = {}
+Signal.__index = Signal
+
+--[=[
+	Constructs a new Signal
+
+	@return Signal
+]=]
+function Signal.new<T...>(): Signal<T...>
+	local self = setmetatable({
+		_handlerListHead = false,
+		_proxyHandler = nil,
+		_yieldedThreads = nil,
+	}, Signal)
+
+	return self
+end
+
+--[=[
+	Constructs a new Signal that wraps around an RBXScriptSignal.
+
+	@param rbxScriptSignal RBXScriptSignal -- Existing RBXScriptSignal to wrap
+	@return Signal
+
+	For example:
+	```lua
+	local signal = Signal.Wrap(workspace.ChildAdded)
+	signal:Connect(function(part) print(part.Name .. " added") end)
+	Instance.new("Part").Parent = workspace
+	```
+]=]
+function Signal.Wrap<T...>(rbxScriptSignal: RBXScriptSignal): Signal<T...>
+	assert(
+		typeof(rbxScriptSignal) == "RBXScriptSignal",
+		"Argument #1 to Signal.Wrap must be a RBXScriptSignal; got " .. typeof(rbxScriptSignal)
+	)
+
+	local signal = Signal.new()
+	signal._proxyHandler = rbxScriptSignal:Connect(function(...)
+		signal:Fire(...)
+	end)
+
+	return signal
+end
+
+--[=[
+	Checks if the given object is a Signal.
+
+	@param obj any -- Object to check
+	@return boolean -- `true` if the object is a Signal.
+]=]
+function Signal.Is(obj: any): boolean
+	return type(obj) == "table" and getmetatable(obj) == Signal
+end
+
+--[=[
+	@param fn ConnectionFn
+	@return SignalConnection
+
+	Connects a function to the signal, which will be called anytime the signal is fired.
+	```lua
+	signal:Connect(function(msg, num)
+		print(msg, num)
+	end)
+
+	signal:Fire("Hello", 25)
+	```
+]=]
+function Signal:Connect(fn)
+	local connection = setmetatable({
+		Connected = true,
+		_signal = self,
+		_fn = fn,
+		_next = false,
+	}, Connection)
+
+	if self._handlerListHead then
+		connection._next = self._handlerListHead
+		self._handlerListHead = connection
+	else
+		self._handlerListHead = connection
+	end
+
+	return connection
+end
+
+--[=[
+	@deprecated v1.3.0 -- Use `Signal:Once` instead.
+	@param fn ConnectionFn
+	@return SignalConnection
+]=]
+function Signal:ConnectOnce(fn)
+	return self:Once(fn)
+end
+
+--[=[
+	@param fn ConnectionFn
+	@return SignalConnection
+
+	Connects a function to the signal, which will be called the next time the signal fires. Once
+	the connection is triggered, it will disconnect itself.
+	```lua
+	signal:Once(function(msg, num)
+		print(msg, num)
+	end)
+
+	signal:Fire("Hello", 25)
+	signal:Fire("This message will not go through", 10)
+	```
+]=]
+function Signal:Once(fn)
+	local connection
+	local done = false
+
+	connection = self:Connect(function(...)
+		if done then
+			return
+		end
+
+		done = true
+		connection:Disconnect()
+		fn(...)
+	end)
+
+	return connection
+end
+
+function Signal:GetConnections()
+	local items = {}
+
+	local item = self._handlerListHead
+	while item do
+		table.insert(items, item)
+		item = item._next
+	end
+
+	return items
+end
+
+-- Disconnect all handlers. Since we use a linked list it suffices to clear the
+-- reference to the head handler.
+--[=[
+	Disconnects all connections from the signal.
+	```lua
+	signal:DisconnectAll()
+	```
+]=]
+function Signal:DisconnectAll()
+	local item = self._handlerListHead
+	while item do
+		item.Connected = false
+		item = item._next
+	end
+	self._handlerListHead = false
+
+	local yieldedThreads = rawget(self, "_yieldedThreads")
+	if yieldedThreads then
+		for thread in yieldedThreads do
+			if coroutine.status(thread) == "suspended" then
+				warn(debug.traceback(thread, "signal disconnected; yielded thread cancelled", 2))
+				task.cancel(thread)
+			end
+		end
+		table.clear(self._yieldedThreads)
+	end
+end
+
+-- Signal:Fire(...) implemented by running the handler functions on the
+-- coRunnerThread, and any time the resulting thread yielded without returning
+-- to us, that means that it yielded to the Roblox scheduler and has been taken
+-- over by Roblox scheduling, meaning we have to make a new coroutine runner.
+--[=[
+	@param ... any
+
+	Fire the signal, which will call all of the connected functions with the given arguments.
+	```lua
+	signal:Fire("Hello")
+
+	-- Any number of arguments can be fired:
+	signal:Fire("Hello", 32, {Test = "Test"}, true)
+	```
+]=]
+function Signal:Fire(...)
+	local item = self._handlerListHead
+	while item do
+		if item.Connected then
+			if not freeRunnerThread then
+				freeRunnerThread = coroutine.create(runEventHandlerInFreeThread)
+			end
+			task.spawn(freeRunnerThread, item._fn, ...)
+		end
+		item = item._next
+	end
+end
+
+--[=[
+	@param ... any
+
+	Same as `Fire`, but uses `task.defer` internally & doesn't take advantage of thread reuse.
+	```lua
+	signal:FireDeferred("Hello")
+	```
+]=]
+function Signal:FireDeferred(...)
+	local item = self._handlerListHead
+	while item do
+		local conn = item
+		task.defer(function(...)
+			if conn.Connected then
+				conn._fn(...)
+			end
+		end, ...)
+		item = item._next
+	end
+end
+
+--[=[
+	@return ... any
+	@yields
+
+	Yields the current thread until the signal is fired, and returns the arguments fired from the signal.
+	Yielding the current thread is not always desirable. If the desire is to only capture the next event
+	fired, using `Once` might be a better solution.
+	```lua
+	task.spawn(function()
+		local msg, num = signal:Wait()
+		print(msg, num) --> "Hello", 32
+	end)
+	signal:Fire("Hello", 32)
+	```
+]=]
+function Signal:Wait()
+	local yieldedThreads = rawget(self, "_yieldedThreads")
+	if not yieldedThreads then
+		yieldedThreads = {}
+		rawset(self, "_yieldedThreads", yieldedThreads)
+	end
+
+	local thread = coroutine.running()
+	yieldedThreads[thread] = true
+
+	self:Once(function(...)
+		yieldedThreads[thread] = nil
+
+		if coroutine.status(thread) == "suspended" then
+			task.spawn(thread, ...)
+		end
+	end)
+
+	return coroutine.yield()
+end
+
+--[=[
+	Cleans up the signal.
+
+	Technically, this is only necessary if the signal is created using
+	`Signal.Wrap`. Connections should be properly GC'd once the signal
+	is no longer referenced anywhere. However, it is still good practice
+	to include ways to strictly clean up resources. Calling `Destroy`
+	on a signal will also disconnect all connections immediately.
+	```lua
+	signal:Destroy()
+	```
+]=]
+function Signal:Destroy()
+	self:DisconnectAll()
+
+	local proxyHandler = rawget(self, "_proxyHandler")
+	if proxyHandler then
+		proxyHandler:Disconnect()
+	end
+end
+
+-- Make signal strict
+setmetatable(Signal, {
+	__index = function(_tb, key)
+		error(("Attempt to get Signal::%s (not a valid member)"):format(tostring(key)), 2)
+	end,
+	__newindex = function(_tb, key, _value)
+		error(("Attempt to set Signal::%s (not a valid member)"):format(tostring(key)), 2)
+	end,
+})
+
+return table.freeze({
+	new = Signal.new,
+	Wrap = Signal.Wrap,
+	Is = Signal.Is,
+})
+]]></string>
+            </Properties>
+            <Item class="ModuleScript" referent="11">
+              <Properties>
+                <string name="Name">init.test</string>
+                <string name="Source"><![CDATA[local ServerScriptService = game:GetService("ServerScriptService")
+
+local Test = require(ServerScriptService.TestRunner.Test)
+
+local function AwaitCondition(predicate: () -> boolean, timeout: number?)
+	local start = os.clock()
+	timeout = (timeout or 10)
+	while true do
+		if predicate() then
+			return true
+		end
+		if (os.clock() - start) > timeout then
+			return false
+		end
+		task.wait()
+	end
+end
+
+return function(ctx: Test.TestContext)
+	local Signal = require(script.Parent)
+
+	local signal
+
+	local function NumConns(sig)
+		sig = sig or signal
+		return #sig:GetConnections()
+	end
+
+	ctx:BeforeEach(function()
+		signal = Signal.new()
+	end)
+
+	ctx:AfterEach(function()
+		signal:Destroy()
+	end)
+
+	ctx:Describe("Constructor", function()
+		ctx:Test("should create a new signal and fire it", function()
+			ctx:Expect(Signal.Is(signal)):ToBe(true)
+			task.defer(function()
+				signal:Fire(10, 20)
+			end)
+			local n1, n2 = signal:Wait()
+			ctx:Expect(n1):ToBe(10)
+			ctx:Expect(n2):ToBe(20)
+		end)
+
+		ctx:Test("should create a proxy signal and connect to it", function()
+			local signalWrap = Signal.Wrap(game:GetService("RunService").Heartbeat)
+			ctx:Expect(Signal.Is(signalWrap)):ToBe(true)
+			local fired = false
+			signalWrap:Connect(function()
+				fired = true
+			end)
+			ctx:Expect(AwaitCondition(function()
+				return fired
+			end, 2)):ToBe(true)
+			signalWrap:Destroy()
+		end)
+	end)
+
+	ctx:Describe("FireDeferred", function()
+		ctx:Test("should be able to fire primitive argument", function()
+			local send = 10
+			local value
+			signal:Connect(function(v)
+				value = v
+			end)
+			signal:FireDeferred(send)
+			ctx:Expect(AwaitCondition(function()
+				return (send == value)
+			end, 1)):ToBe(true)
+		end)
+
+		ctx:Test("should be able to fire a reference based argument", function()
+			local send = { 10, 20 }
+			local value
+			signal:Connect(function(v)
+				value = v
+			end)
+			signal:FireDeferred(send)
+			ctx:Expect(AwaitCondition(function()
+				return (send == value)
+			end, 1)):ToBe(true)
+		end)
+	end)
+
+	ctx:Describe("Fire", function()
+		ctx:Test("should be able to fire primitive argument", function()
+			local send = 10
+			local value
+			signal:Connect(function(v)
+				value = v
+			end)
+			signal:Fire(send)
+			ctx:Expect(value):ToBe(send)
+		end)
+
+		ctx:Test("should be able to fire a reference based argument", function()
+			local send = { 10, 20 }
+			local value
+			signal:Connect(function(v)
+				value = v
+			end)
+			signal:Fire(send)
+			ctx:Expect(value):ToBe(send)
+		end)
+	end)
+
+	ctx:Describe("ConnectOnce", function()
+		ctx:Test("should only capture first fire", function()
+			local value
+			local c = signal:ConnectOnce(function(v)
+				value = v
+			end)
+			ctx:Expect(c.Connected):ToBe(true)
+			signal:Fire(10)
+			ctx:Expect(c.Connected):ToBe(false)
+			signal:Fire(20)
+			ctx:Expect(value):ToBe(10)
+		end)
+	end)
+
+	ctx:Describe("Wait", function()
+		ctx:Test("should be able to wait for a signal to fire", function()
+			task.defer(function()
+				signal:Fire(10, 20, 30)
+			end)
+			local n1, n2, n3 = signal:Wait()
+			ctx:Expect(n1):ToBe(10)
+			ctx:Expect(n2):ToBe(20)
+			ctx:Expect(n3):ToBe(30)
+		end)
+	end)
+
+	ctx:Describe("DisconnectAll", function()
+		ctx:Test("should disconnect all connections", function()
+			signal:Connect(function() end)
+			signal:Connect(function() end)
+			ctx:Expect(NumConns()):ToBe(2)
+			signal:DisconnectAll()
+			ctx:Expect(NumConns()):ToBe(0)
+		end)
+	end)
+
+	ctx:Describe("Disconnect", function()
+		ctx:Test("should disconnect connection", function()
+			local con = signal:Connect(function() end)
+			ctx:Expect(NumConns()):ToBe(1)
+			con:Disconnect()
+			ctx:Expect(NumConns()):ToBe(0)
+		end)
+
+		ctx:Test("should still work if connections disconnected while firing", function()
+			local a = 0
+			local c
+			signal:Connect(function()
+				a += 1
+			end)
+			c = signal:Connect(function()
+				c:Disconnect()
+				a += 1
+			end)
+			signal:Connect(function()
+				a += 1
+			end)
+			signal:Fire()
+			ctx:Expect(a):ToBe(3)
+		end)
+
+		ctx:Test("should still work if connections disconnected while firing deferred", function()
+			local a = 0
+			local c
+			signal:Connect(function()
+				a += 1
+			end)
+			c = signal:Connect(function()
+				c:Disconnect()
+				a += 1
+			end)
+			signal:Connect(function()
+				a += 1
+			end)
+			signal:FireDeferred()
+			ctx:Expect(AwaitCondition(function()
+				return a == 3
+			end)):ToBe(true)
+		end)
+	end)
+end
+]]></string>
+              </Properties>
+            </Item>
+            <Item class="ModuleScript" referent="12">
+              <Properties>
+                <string name="Name">wally</string>
+                <string name="Source">return {
+	package = {
+		authors = {"Stephen Leitnick"},
+		description = "Signal class",
+		exclude = {"node_modules", "package.json", "**/*.ts"},
+		license = "MIT",
+		name = "sleitnick/signal",
+		realm = "shared",
+		registry = "https://github.com/UpliftGames/wally-index",
+		version = "2.0.3",
+	},
+}</string>
+              </Properties>
+            </Item>
+          </Item>
+        </Item>
+      </Item>
+      <Item class="ModuleScript" referent="13">
+        <Properties>
+          <string name="Name">networker</string>
+          <string name="Source"><![CDATA[return require(script.Parent._Index["leifstout_networker@0.3.1"]["networker"])
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+    <Item class="Folder" referent="14">
+      <Properties>
+        <string name="Name">Shared</string>
+      </Properties>
+      <Item class="Folder" referent="15">
+        <Properties>
+          <string name="Name">Classes</string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="16">
+        <Properties>
+          <string name="Name">Modules</string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="17">
+        <Properties>
+          <string name="Name">Services</string>
+        </Properties>
+        <Item class="Folder" referent="18">
+          <Properties>
+            <string name="Name">ExampleService</string>
+          </Properties>
+          <Item class="ModuleScript" referent="19">
+            <Properties>
+              <string name="Name">ExampleServiceClient</string>
+              <string name="Source"><![CDATA[local ExampleServiceClient = {}
+
+return ExampleServiceClient
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="20">
+            <Properties>
+              <string name="Name">ExampleServiceUtils</string>
+              <string name="Source"></string>
+            </Properties>
+          </Item>
+        </Item>
+      </Item>
+    </Item>
+    <Item class="Folder" referent="21">
+      <Properties>
+        <string name="Name">UI</string>
+      </Properties>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="22">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="Folder" referent="23">
+      <Properties>
+        <string name="Name">Classes</string>
+      </Properties>
+    </Item>
+    <Item class="Folder" referent="24">
+      <Properties>
+        <string name="Name">Modules</string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="25">
+      <Properties>
+        <string name="Name">Server</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[local ServerScriptService = game:GetService("ServerScriptService")
+
+local ExampleServiceServer = require(ServerScriptService.Services.ExampleService.ExampleServiceServer)
+
+ExampleServiceServer:init()
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Folder" referent="26">
+      <Properties>
+        <string name="Name">Services</string>
+      </Properties>
+      <Item class="Folder" referent="27">
+        <Properties>
+          <string name="Name">ExampleService</string>
+        </Properties>
+        <Item class="ModuleScript" referent="28">
+          <Properties>
+            <string name="Name">ExampleServiceServer</string>
+            <string name="Source"><![CDATA[local ExampleServiceServer = {}
+
+function ExampleServiceServer.init(self: ExampleServiceServer)
+	print("hi from ExampleServiceServer!")
+end
+
+export type ExampleServiceServer = typeof(ExampleServiceServer) & {}
+
+return ExampleServiceServer
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="StarterPlayer" referent="29">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="30">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="LocalScript" referent="31">
+        <Properties>
+          <string name="Name">Client</string>
+          <string name="Source"></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+</roblox>

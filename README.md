@@ -15,3 +15,10 @@ rojo serve
 ```
 
 For more help, check out [the Rojo documentation](https://rojo.space/docs).
+
+
+To run genRojoTree:
+
+```bash
+node tools/genRojoTree.js
+```

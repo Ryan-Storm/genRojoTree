@@ -7,5 +7,3 @@ end
 export type ExampleServiceServer = typeof(ExampleServiceServer) & {}
 
 return ExampleServiceServer
-
--- HI
