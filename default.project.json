@@ -27,7 +27,10 @@
           }
         },
         "Classes": {
-          "$className": "Folder"
+          "$className": "Folder",
+          "testClass": {
+            "$path": "src/classes/testClass.luau"
+          }
         },
         "Modules": {
           "$className": "Folder"
@@ -60,7 +63,10 @@
         }
       },
       "Classes": {
-        "$className": "Folder"
+        "$className": "Folder",
+        "testClassServer": {
+          "$path": "src/classes/testClassServer.luau"
+        }
       },
       "Modules": {
         "$className": "Folder"
