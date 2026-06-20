@@ -7,6 +7,15 @@
         "$className": "Folder",
         "Services": {
           "$className": "Folder",
+          "BuildService": {
+            "$className": "Folder",
+            "BuildServiceClient": {
+              "$path": "src/services/BuildService/Client.luau"
+            },
+            "BuildServiceUtils": {
+              "$path": "src/services/BuildService/Utils.luau"
+            }
+          },
           "ExampleService": {
             "$className": "Folder",
             "ExampleServiceClient": {
@@ -14,15 +23,6 @@
             },
             "ExampleServiceUtils": {
               "$path": "src/services/ExampleService/Utils.luau"
-            }
-          },
-          "StormService": {
-            "$className": "Folder",
-            "StormServiceClient": {
-              "$path": "src/services/StormService/Client.luau"
-            },
-            "StormServiceUtils": {
-              "$path": "src/services/StormService/Utils.luau"
             }
           }
         },
@@ -49,16 +49,16 @@
       },
       "Services": {
         "$className": "Folder",
+        "BuildService": {
+          "$className": "Folder",
+          "BuildServiceServer": {
+            "$path": "src/services/BuildService/Server.luau"
+          }
+        },
         "ExampleService": {
           "$className": "Folder",
           "ExampleServiceServer": {
             "$path": "src/services/ExampleService/Server.luau"
-          }
-        },
-        "StormService": {
-          "$className": "Folder",
-          "StormServiceServer": {
-            "$path": "src/services/StormService/Server.luau"
           }
         }
       },
