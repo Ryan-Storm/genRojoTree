@@ -33,7 +33,16 @@
           }
         },
         "Modules": {
-          "$className": "Folder"
+          "$className": "Folder",
+          "App": {
+            "$path": "src/modules/App.luau"
+          },
+          "Data": {
+            "$path": "src/modules/Data.luau"
+          },
+          "MountUI": {
+            "$path": "src/modules/MountUI.luau"
+          }
         }
       },
       "Packages": {
