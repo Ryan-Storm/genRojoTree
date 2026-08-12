@@ -9,9 +9,11 @@ local Data = require(ReplicatedStorage.Shared.Modules.Data).server
 ExampleServiceServer:init()
 BuildServiceServer:init()
 
-task.wait(4)
-local player = Players:FindFirstChildWhichIsA("Player")
-assert(player, "assert player")
+local player = Players:FindFirstChildWhichIsA("Player") or Players.PlayerAdded:Wait()
+assert(player, "No player found")
+
+local CounterServiceServer = require(ServerScriptService.Services.CounterService.CounterServiceServer)
+CounterServiceServer:init()
 
 -- Data[player].currency(100)
 

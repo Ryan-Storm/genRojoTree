@@ -16,6 +16,15 @@
               "$path": "src/services/BuildService/Utils.luau"
             }
           },
+          "CounterService": {
+            "$className": "Folder",
+            "CounterServiceClient": {
+              "$path": "src/services/CounterService/Client.luau"
+            },
+            "CounterServiceUtils": {
+              "$path": "src/services/CounterService/Utils.luau"
+            }
+          },
           "ExampleService": {
             "$className": "Folder",
             "ExampleServiceClient": {
@@ -37,8 +46,14 @@
           "App": {
             "$path": "src/modules/App.luau"
           },
+          "CounterGUI": {
+            "$path": "src/modules/CounterGUI.luau"
+          },
           "Data": {
             "$path": "src/modules/Data.luau"
+          },
+          "Menu.story": {
+            "$path": "src/modules/Menu.story.luau"
           },
           "MountUI": {
             "$path": "src/modules/MountUI.luau"
@@ -62,6 +77,12 @@
           "$className": "Folder",
           "BuildServiceServer": {
             "$path": "src/services/BuildService/Server.luau"
+          }
+        },
+        "CounterService": {
+          "$className": "Folder",
+          "CounterServiceServer": {
+            "$path": "src/services/CounterService/Server.luau"
           }
         },
         "ExampleService": {

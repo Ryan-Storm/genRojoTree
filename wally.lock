@@ -10,11 +10,11 @@ dependencies = []
 [[package]]
 name = "leifs/genrojotree"
 version = "0.1.0"
-dependencies = [["dataservicetyped", "leifstout/dataservicetyped@1.0.4"], ["networker", "leifstout/networker@0.3.1"], ["vide", "centau/vide@0.4.0"]]
+dependencies = [["dataservicetyped", "leifstout/dataservicetyped@1.0.5"], ["networker", "leifstout/networker@0.3.1"], ["vide", "centau/vide@0.4.0"]]
 
 [[package]]
 name = "leifstout/dataservicetyped"
-version = "1.0.4"
+version = "1.0.5"
 dependencies = [["Networker", "leifstout/networker@0.3.1"], ["ProfileStore", "lm-loleris/profilestore@1.0.3"], ["Signal", "sleitnick/signal@2.0.3"]]
 
 [[package]]

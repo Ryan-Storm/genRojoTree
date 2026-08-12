@@ -22,9 +22,11 @@ BuildServiceClient:init()
 
 local Data = require(ReplicatedStorage.Shared.Modules.Data).client
 
-Data.currency.Changed(function(n)
-	print("Currency Changed To ", n)
+Data.currency.Changed(function(newCurrency)
+	print("Currency Changed To ", newCurrency)
 end)
+
+print("Initial currency:", Data.currency())
 
 -- task.wait(6)
 
@@ -35,3 +37,10 @@ end)
 --////////////////////////////////////////////////////////////
 
 local MountUI = require(ReplicatedStorage.Shared.Modules.MountUI)
+
+--////////////////////////////////////////////////////////////
+-- Counter Service
+--////////////////////////////////////////////////////////////
+
+local CounterServiceClient = require(ReplicatedStorage.Shared.Services.CounterService.CounterServiceClient)
+CounterServiceClient:init()
