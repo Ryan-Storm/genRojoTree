@@ -33,6 +33,15 @@
             "ExampleServiceUtils": {
               "$path": "src/services/ExampleService/Utils.luau"
             }
+          },
+          "SettingService": {
+            "$className": "Folder",
+            "SettingServiceClient": {
+              "$path": "src/services/SettingService/Client.luau"
+            },
+            "SettingServiceUtils": {
+              "$path": "src/services/SettingService/Utils.luau"
+            }
           }
         },
         "Classes": {
@@ -57,6 +66,9 @@
           },
           "MountUI": {
             "$path": "src/modules/MountUI.luau"
+          },
+          "SettingsGUI": {
+            "$path": "src/modules/SettingsGUI.luau"
           }
         }
       },
@@ -89,6 +101,12 @@
           "$className": "Folder",
           "ExampleServiceServer": {
             "$path": "src/services/ExampleService/Server.luau"
+          }
+        },
+        "SettingService": {
+          "$className": "Folder",
+          "SettingServiceServer": {
+            "$path": "src/services/SettingService/Server.luau"
           }
         }
       },

@@ -14,6 +14,7 @@ local template = {
 	},
 	settings = {
 		music = true,
+		sfx = true,
 	},
 	tutorial = {
 		step = {},

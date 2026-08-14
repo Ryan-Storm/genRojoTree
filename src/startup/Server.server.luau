@@ -12,14 +12,16 @@ BuildServiceServer:init()
 local player = Players:FindFirstChildWhichIsA("Player") or Players.PlayerAdded:Wait()
 assert(player, "No player found")
 
+--////////////////////////////////////////////////////////////
+-- Counter Service: Project 01
+--////////////////////////////////////////////////////////////
+
 local CounterServiceServer = require(ServerScriptService.Services.CounterService.CounterServiceServer)
 CounterServiceServer:init()
 
--- Data[player].currency(100)
+--////////////////////////////////////////////////////////////
+-- Settings Service: Project 02
+--////////////////////////////////////////////////////////////
 
--- while true do
--- 	task.wait(1)
--- 	Data[player].currency(function(n: number)
--- 		return n + 1
--- 	end)
--- end
+local SettingServiceServer = require(ServerScriptService.Services.SettingService.SettingServiceServer)
+SettingServiceServer:init()

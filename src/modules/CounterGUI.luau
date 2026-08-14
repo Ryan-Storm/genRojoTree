@@ -9,17 +9,13 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local create = vide.create
 local source = vide.source
 local effect = vide.effect
+local cleanup = vide.cleanup
 
 --////////////////////////////////////////////////////////////
 -- Data
 --////////////////////////////////////////////////////////////
 
 local Data = require(ReplicatedStorage.Shared.Modules.Data).client
-
-local currency = source(Data.currency())
-Data.currency.Changed(function(newCurrency)
-	currency(newCurrency)
-end)
 
 --////////////////////////////////////////////////////////////
 -- Counter Service
@@ -32,6 +28,12 @@ local CounterServiceClient = require(ReplicatedStorage.Shared.Services.CounterSe
 --////////////////////////////////////////////////////////////
 
 return function()
+	local currency = source(Data.currency())
+	local disconnect = Data.currency.Changed(function(newCurrency)
+		currency(newCurrency)
+	end)
+	cleanup(disconnect)
+
 	return create("Frame")({
 		Name = "Frame",
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -57,6 +59,24 @@ return function()
 			Text = function()
 				return tostring(currency())
 			end,
+		}),
+
+		create("TextButton")({
+			Name = "TextButton",
+			AnchorPoint = Vector2.new(0.5, 0),
+			BackgroundColor3 = Color3.fromRGB(1, 255, 9),
+			FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json"),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(0.8, 0.25),
+			Text = "Click Me!",
+			TextColor3 = Color3.new(),
+			TextSize = 14,
+
+			Activated = function()
+				CounterServiceClient:incrementCurrency()
+			end,
+
+			TextWrapped = true,
 		}),
 	})
 end
