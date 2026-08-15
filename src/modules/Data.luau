@@ -6,22 +6,26 @@ type WeaponData = {
 	swingSpeed: number,
 }
 
+type InventoryData = {
+	items: { [string]: number },
+	equippedItemId: string?,
+}
+
 local template = {
+	-- Currency Project
 	currency = 0,
-	inventory = {
-		apples = 5,
-		oranges = 10,
-	},
+
+	-- Settings Project
 	settings = {
 		music = true,
 		sfx = true,
 	},
-	tutorial = {
-		step = {},
-		completed = false,
+
+	-- Inventory Project
+	inventory = {
+		items = {} :: { [string]: number },
+		equipped = nil :: string?,
 	},
-	words = {} :: { string },
-	weapons = {} :: { [string]: WeaponData },
 }
 
 return DataServiceTyped({

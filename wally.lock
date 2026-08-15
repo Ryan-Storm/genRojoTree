@@ -10,7 +10,7 @@ dependencies = []
 [[package]]
 name = "leifs/genrojotree"
 version = "0.1.0"
-dependencies = [["dataservicetyped", "leifstout/dataservicetyped@1.0.5"], ["networker", "leifstout/networker@0.3.1"], ["vide", "centau/vide@0.4.0"]]
+dependencies = [["dataservicetyped", "leifstout/dataservicetyped@1.0.5"], ["networker", "leifstout/networker@0.3.1"], ["vide", "centau/vide@0.4.0"], ["vide-ripple", "littensy/vide-ripple@0.10.2"]]
 
 [[package]]
 name = "leifstout/dataservicetyped"
@@ -21,6 +21,16 @@ dependencies = [["Networker", "leifstout/networker@0.3.1"], ["ProfileStore", "lm
 name = "leifstout/networker"
 version = "0.3.1"
 dependencies = [["Signal", "sleitnick/signal@2.0.3"]]
+
+[[package]]
+name = "littensy/ripple"
+version = "0.10.2"
+dependencies = []
+
+[[package]]
+name = "littensy/vide-ripple"
+version = "0.10.2"
+dependencies = [["Ripple", "littensy/ripple@0.10.2"], ["Vide", "centau/vide@0.4.0"]]
 
 [[package]]
 name = "lm-loleris/profilestore"

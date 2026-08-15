@@ -67,6 +67,9 @@
           "MountUI": {
             "$path": "src/modules/MountUI.luau"
           },
+          "RippleTessting": {
+            "$path": "src/modules/RippleTessting.luau"
+          },
           "SettingsGUI": {
             "$path": "src/modules/SettingsGUI.luau"
           }
