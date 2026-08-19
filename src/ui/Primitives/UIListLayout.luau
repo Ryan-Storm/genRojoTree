@@ -5,6 +5,8 @@ local create = Vide.create
 
 return function(props)
 	return create("UIListLayout")({
+		Name = props.Name or "UIListLayout",
+
 		FillDirection = props.FillDirection or Enum.FillDirection.Vertical,
 		HorizontalAlignment = props.HorizontalAlignment or Enum.HorizontalAlignment.Left,
 		VerticalAlignment = props.VerticalAlignment or Enum.VerticalAlignment.Top,

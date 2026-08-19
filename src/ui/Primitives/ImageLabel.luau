@@ -28,15 +28,17 @@ local function getSliceCenter(props)
 	local right = offsets.Right or 0
 	local bottom = offsets.Bottom or 0
 
-	return Rect.new(left, top, imageSize.X - right, imageSize.y - bottom)
+	return Rect.new(left, top, imageSize.X - right, imageSize.Y - bottom)
 end
 
 return function(props)
 	return create("ImageLabel")(withChildren({
 		Name = props.Name or "ImageLabel",
-		Size = props.Size,
-		Position = props.Position,
-		AnchorPoint = props.AnchorPoint,
+
+		Size = props.Size or UDim2.fromScale(1, 1),
+		Position = props.Position or UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = props.AnchorPoint or Vector2.new(0.5, 0.5),
+
 		BackgroundTransparency = props.BackgroundTransparency or 1,
 
 		Image = props.Image or "",
@@ -48,6 +50,6 @@ return function(props)
 		SliceScale = props.SliceScale or 1,
 
 		LayoutOrder = props.LayoutOrder,
-		ZIndex = props.ZIndex,
+		ZIndex = props.ZIndex or 1,
 	}, props))
 end
