@@ -103,6 +103,8 @@ return function()
 			ScaleType = Enum.ScaleType.Slice,
 			SliceImageSize = imageIds.Panel_Inventory_Frame.Size,
 			SliceOffsets = imageIds.Panel_Inventory_Frame.SliceOffsets,
+			SliceImageSize = imageIds.Panel_Inventory_Frame.Size,
+			SliceOffsets = imageIds.Panel_Inventory_Frame.SliceOffsets,
 			SliceScale = 0.75,
 		}),
 

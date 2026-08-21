@@ -1,5 +1,6 @@
 return {
 	Panel_Inventory_Frame = {
+	Panel_Inventory_Frame = {
 		Image = "rbxassetid://139413297842043",
 		Size = Vector2.new(1024, 742),
 		SliceOffsets = {
