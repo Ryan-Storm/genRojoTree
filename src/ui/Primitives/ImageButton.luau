@@ -10,6 +10,7 @@ local videRipple = require(ReplicatedStorage.Packages["vide-ripple"])
 local useSpring = videRipple.useSpring
 local config = videRipple.config
 
+-- Children
 local function withChildren(instanceProps, props)
 	for _, child in ipairs(props) do
 		table.insert(instanceProps, child)
@@ -18,6 +19,7 @@ local function withChildren(instanceProps, props)
 	return instanceProps
 end
 
+-- Slicer
 local function getSliceCenter(props)
 	if props.SliceCenter then
 		return props.SliceCenter
@@ -47,7 +49,7 @@ local function toUDim(value)
 end
 
 local function ImageButton(props)
-	local scale, spring = useSpring(1, config.default)
+	local scale, spring = useSpring(1, config.wobbly)
 
 	return create("Frame")({
 		Size = props.Size,
@@ -57,7 +59,7 @@ local function ImageButton(props)
 		Position = props.Position,
 		ZIndex = props.ZIndex,
 
-		create("ImageButton")({
+		create("ImageButton")(withChildren({
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
 			Size = UDim2.fromScale(1, 1),
@@ -73,9 +75,9 @@ local function ImageButton(props)
 
 			changed("GuiState", function(state)
 				if state == Enum.GuiState.Hover then
-					spring:setGoal(1.04)
+					spring:setGoal(1.08)
 				elseif state == Enum.GuiState.Press then
-					spring:setGoal(0.96)
+					spring:setGoal(0.90)
 				else
 					spring:setGoal(1)
 				end
@@ -86,7 +88,7 @@ local function ImageButton(props)
 					return scale()
 				end,
 			}),
-		}),
+		}, props)),
 	})
 end
 

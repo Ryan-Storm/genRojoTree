@@ -27,19 +27,100 @@ local function withChildren(instanceProps, props)
 end
 
 return function(props)
-	return create("Frame")(withChildren({
+	local ItemId = props.ItemId
+	local amount = vide.source(props.Amount or 1)
+	local maxAmount = props.MaxAmount or 1
+	local equipped = vide.source(props.Equipped or false)
+
+	return create("Frame")(withChildren({ -- Outer Frame
+
 		Size = props.Size or UDim2.fromScale(1, 1),
 		Position = props.Position or UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = props.AnchorPoint or Vector2.new(0.5, 0.5),
 		BackgroundTransparency = props.BackgroundTransparency or 1,
 
-		ImageButton({
+		ImageButton({ -- Button
 			Size = UDim2.fromScale(1, 1),
 			Image = imageIds.Panel_Inventory_Slot_Frame.Image,
-			ScaleType = Enum.ScaleType.Slice,
-			SliceImageSize = imageIds.Panel_Inventory_Slot_Frame.Size,
-			SliceOffsets = imageIds.Panel_Inventory_Slot_Frame.SliceOffsets,
-			SliceScale = 0.6,
+
+			TextLabel({ -- Item Name
+				Position = UDim2.fromScale(0.5, 0),
+				ZIndex = 5,
+
+				Text = props.DisplayName or "EXAMPLE",
+				TextSize = 18,
+
+				UIStroke({
+					Color = Color3.fromRGB(9, 11, 17),
+					Thickness = 2,
+				}),
+			}),
+
+			ImageLabel({ -- Icon
+				Size = UDim2.fromScale(0.62, 0.5),
+				Position = UDim2.fromScale(0.5, 0.4),
+				Image = props.Icon or imageIds.Example_Icon_Apple.Image,
+				-- ImageTransparency = if props.icon then 0 else 1,
+			}),
+
+			Frame({ -- Count
+				Size = UDim2.fromScale(0.8, 0.2),
+				Position = UDim2.fromScale(0.5, 0.81),
+				BackgroundTransparency = 1,
+
+				TextLabel({ -- Count Text
+					Position = UDim2.fromScale(0.5, 0.45),
+					ZIndex = 4,
+
+					Text = function()
+						return tostring(amount()) .. "/" .. tostring(maxAmount)
+					end,
+					TextSize = 18,
+
+					UIStroke({
+						Color = Color3.fromRGB(9, 11, 17),
+						Thickness = 1.5,
+					}),
+				}),
+
+				ImageLabel({ -- Count Frame
+					Size = UDim2.fromScale(1, 1),
+					Position = UDim2.fromScale(0.5, 0.5),
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Image = imageIds.Panel_Inventory_Count_Frame.Image,
+					ZIndex = 2,
+				}),
+
+				ImageLabel({ -- Count Inside
+					-- Size = UDim2.fromScale(0.94, 0.82), -- 0.94=100%,
+					Size = function()
+						local percent = (amount() / maxAmount) * 0.94
+						return UDim2.fromScale(percent, 0.82)
+					end,
+					Position = UDim2.fromScale(0.03, 0.47),
+					AnchorPoint = Vector2.new(0, 0.5),
+					Image = imageIds.Panel_Inventory_Count_Inside.Image,
+					ZIndex = 1,
+
+					SliceImageSize = imageIds.Panel_Inventory_Count_Inside.Size,
+					SliceOffsets = imageIds.Panel_Inventory_Count_Inside.SliceOffsets,
+					ScaleType = Enum.ScaleType.Slice,
+					SliceScale = 0.1,
+				}),
+			}),
+
+			ImageLabel({ -- Equipped Frame
+				Size = UDim2.fromScale(1, 0.95),
+				Position = UDim2.fromScale(0.5, 0.488),
+				Image = imageIds.Panel_Inventory_Slot_Selected.Image,
+				ImageTransparency = function()
+					return if equipped() then 0 else 1
+				end,
+			}),
+
+			Activated = function()
+				equipped(not equipped())
+			end,
 		}),
 	}, props))
 end

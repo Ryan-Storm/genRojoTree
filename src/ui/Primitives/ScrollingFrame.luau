@@ -23,6 +23,8 @@ local function ScrollingFrame(props)
 
 		BackgroundTransparency = props.BackgroundTransparency or 1,
 
+		ClipsDescendants = true,
+
 		ZIndex = props.ZIndex or 1,
 	}, props))
 end

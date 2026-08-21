@@ -27,9 +27,10 @@ local function getViewportSize()
 end
 
 return function(props)
-	local baseSize = props.BaseSize or Vector2.new(900, 600)
-	local minScale = props.MinScale or 0.65
-	local maxScale = props.MaxScale or 1
+	local baseSize = props.BaseSize or Vector2.new(900, 600) -- actual designed inventory size
+	local referenceViewport = props.ReferenceViewport or Vector2.new(1920, 1080) -- screen size where inventory reaches scale 1
+	local minScale = props.MinScale or 0.1 -- smallest the inventory is allowed to shrink
+	local maxScale = props.MaxScale or 1 -- largest the inventory is allowed to grow
 	local viewportSize = source(getViewportSize())
 
 	local camera = Workspace.CurrentCamera
@@ -69,9 +70,14 @@ return function(props)
 				Scale = function()
 					local currentViewportSize = viewportSize()
 
-					local xScale = currentViewportSize.X / baseSize.X
-					local yScale = currentViewportSize.Y / baseSize.Y
-					local scale = math.min(xScale, yScale)
+					local viewportScale = math.min(
+						currentViewportSize.X / referenceViewport.X,
+						currentViewportSize.Y / referenceViewport.Y
+					)
+
+					local fitScale = math.min(currentViewportSize.X / baseSize.X, currentViewportSize.Y / baseSize.Y)
+
+					local scale = math.min(viewportScale, fitScale)
 
 					return math.clamp(scale, minScale, maxScale)
 				end,
